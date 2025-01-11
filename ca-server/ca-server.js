@@ -3,8 +3,8 @@ const bodyParser = require("body-parser")
 const forge = require("node-forge")
 const fs = require("fs")
 
-const { loadRootCA } = require("./generate-root")
-const { getDigest, getGenericDigest} = require("./utils")
+const { loadRootCA } = require("./src/generate-root")
+const { getDigest, getGenericDigest} = require("./src/utils")
 
 const app = express()
 app.use(bodyParser.json())
