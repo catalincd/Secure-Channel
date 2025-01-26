@@ -12,13 +12,14 @@ app.use(bodyParser.json())
 
 const ROOT = loadRootCA("Trusted Authority", "WUT", "RO")
 const CA_STORE = forge.pki.createCaStore([])
+const REVOKED_PATH = "revoked/revoked.txt"
 
 let rootPublicKey = ROOT.publicKey
 let rootPrivateKey = ROOT.privateKey
 let rootCertificate = ROOT.certificate
 
 const sha256Digest = getGenericDigest()
-const revoked = fs.readFileSync("revoked/revoked.txt", 'ascii').toString().split('\n')
+let revoked = fs.readFileSync(REVOKED_PATH, 'ascii').toString().split('\n')
 
 app.post("/issue-certificate", (req, res) => {
     try {
@@ -31,7 +32,6 @@ app.post("/issue-certificate", (req, res) => {
         const keyPair = forge.pki.rsa.generateKeyPair(2048)
         const cert = forge.pki.createCertificate()
         
-
         cert.publicKey = keyPair.publicKey
         cert.serialNumber = Date.now().toString()
 
@@ -70,7 +70,6 @@ app.post("/verify-certificate", (req, res) => {
             return res.json({ valid: false, reason: "Certificate is expired or not yet valid." })
         }
 
-        
         if (JSON.stringify(cert.issuer.attributes) !== JSON.stringify(rootCertificate.subject.attributes)) {
             return res.json({ valid: false, reason: "Issuer does not match the root certificate." })
         }
@@ -97,12 +96,72 @@ app.post("/verify-certificate", (req, res) => {
     }
 })
 
-app.post("/renew-certificate", (req, res) => {
-    res.json({ "error": "Not implemented" })
+app.post("/revoke-certificate", (req, res) => {
+    try{
+        const cert = forge.pki.certificateFromPem(req.body.certificate)
+        const pk = forge.pki.privateKeyFromPem(req.body.privateKey)
+
+        const publicKeyModulus = cert.publicKey.n.toString(16);
+        const privateKeyModulus = pk.n.toString(16);
+
+        if(publicKeyModulus != privateKeyModulus)
+            return res.json({ valid: false })
+
+        revoked.push(getDigest(cert).digest().toHex())
+
+        fs.writeFile(REVOKED_PATH, revoked.join('\n'), () => {})
+
+        res.json({
+            valid: true,
+            message: "Certificate revoked successfully.",
+        })
+
+    } catch (error) {
+        console.log(error)
+        return res.json({ valid: false, reason: `Validation failed: ${error.message}` })
+    }
 })
 
-app.post("/revoke-certificate", (req, res) => {
-    res.json({ "error": "Not implemented" })
+
+app.post("/renew-certificate", (req, res) => {
+    try{
+        const cert = forge.pki.certificateFromPem(req.body.certificate)
+        const pk = forge.pki.privateKeyFromPem(req.body.privateKey)
+
+        const publicKeyModulus = cert.publicKey.n.toString(16);
+        const privateKeyModulus = pk.n.toString(16);
+
+        if(publicKeyModulus != privateKeyModulus)
+            return res.json({ valid: false })
+
+        console.log(JSON.stringify(cert))
+
+        const keyPair = forge.pki.rsa.generateKeyPair(2048)
+        const newCert = forge.pki.createCertificate()
+        
+        newCert.publicKey = keyPair.publicKey
+        newCert.serialNumber = Date.now().toString()
+
+        newCert.validity.notBefore = new Date()
+        newCert.validity.notAfter = new Date()
+        newCert.validity.notAfter.setFullYear(newCert.validity.notBefore.getFullYear() + 1)
+
+
+        newCert.setSubject(cert.subject.attributes)
+        newCert.setIssuer(rootCertificate.subject.attributes)        
+        newCert.sign(rootPrivateKey, sha256Digest)
+
+        res.json({
+            valid: true,
+            message: "Certificate renewed successfully.",
+            certificate: forge.pki.certificateToPem(newCert),
+            privateKey: forge.pki.privateKeyToPem(keyPair.privateKey),
+        })
+
+    } catch (error) {
+        console.log(error)
+        return res.json({ valid: false, reason: `Validation failed: ${error.message}` })
+    }
 })
 
 
