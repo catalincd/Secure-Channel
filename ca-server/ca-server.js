@@ -18,7 +18,7 @@ let rootPrivateKey = ROOT.privateKey
 let rootCertificate = ROOT.certificate
 
 const sha256Digest = getGenericDigest()
-const revoked = fs.readFileSync("revoked/revoked.txt", 'ascii').toString().split('\n')
+const revoked = fs.readFileSync("revoked.txt", 'ascii').toString().split('\n')
 
 app.post("/issue-certificate", (req, res) => {
     try {

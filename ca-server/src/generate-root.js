@@ -10,6 +10,11 @@ const CERTIFICATE_PATH = `${KEYS_FOLDER}/CERT.PEM`
 
 const loadRootCA = (commonName, organization, country) => 
 {
+    if(!fs.existsSync('./root'))
+    {
+        fs.mkdirSync('./root')
+    }
+
     // paranoia
     if(!fs.existsSync(PUBLIC_KEY_PATH) || !fs.existsSync(PRIVATE_KEY_PATH) || !fs.existsSync(CERTIFICATE_PATH))
     {
