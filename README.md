@@ -96,3 +96,24 @@ The response data is formatted in JSON, with a boolean `valid` and a detailed `r
 }
 ```
 If valid, the new `certificate` and `privateKey` are provided. The old certificate is still available until it expires, but it can be revoked without revoking the new one.
+
+
+# Example Usage
+
+Run the CA Server:
+```bash
+cd ca-server
+npm run start
+```
+
+Run the Example Server:
+```bash
+cd example-server
+npm run start
+```
+
+Run the Client Server:
+```bash
+cd example-client
+npm run start
+```
