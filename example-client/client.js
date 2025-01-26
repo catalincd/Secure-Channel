@@ -83,7 +83,7 @@ const connectToServer = async () => {
 }
 
 const startReading = () => {
-    rl.question('> ', (input) => {
+    rl.question('', (input) => {
         if (input === 'eXit') { //ikyk
             console.log('Goodbye!')
             exit(1)
