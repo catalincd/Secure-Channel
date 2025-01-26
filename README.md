@@ -112,7 +112,7 @@ cd example-server
 npm run start
 ```
 
-Run the Client Server:
+Run the multiple Example Clients:
 ```bash
 cd example-client
 npm run start
