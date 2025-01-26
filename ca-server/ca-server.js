@@ -4,7 +4,7 @@ const forge = require("node-forge")
 const fs = require("fs")
 
 const { loadRootCA } = require("./src/generate-root")
-const { getDigest, getGenericDigest} = require("./src/utils")
+const { getDigest, getGenericDigest, loadOrCreate } = require("./src/utils")
 
 const app = express()
 app.use(bodyParser.json())
@@ -12,14 +12,14 @@ app.use(bodyParser.json())
 
 const ROOT = loadRootCA("Trusted Authority", "WUT", "RO")
 const CA_STORE = forge.pki.createCaStore([])
-const REVOKED_PATH = "revoked/revoked.txt"
+const REVOKED_PATH = "revoked.txt"
 
 let rootPublicKey = ROOT.publicKey
 let rootPrivateKey = ROOT.privateKey
 let rootCertificate = ROOT.certificate
 
 const sha256Digest = getGenericDigest()
-let revoked = fs.readFileSync(REVOKED_PATH, 'ascii').toString().split('\n')
+let revoked = loadOrCreate(REVOKED_PATH, 'ascii').split('\n')
 
 app.post("/issue-certificate", (req, res) => {
     try {
@@ -31,7 +31,7 @@ app.post("/issue-certificate", (req, res) => {
 
         const keyPair = forge.pki.rsa.generateKeyPair(2048)
         const cert = forge.pki.createCertificate()
-        
+
         cert.publicKey = keyPair.publicKey
         cert.serialNumber = Date.now().toString()
 
@@ -47,7 +47,7 @@ app.post("/issue-certificate", (req, res) => {
         ]
 
         cert.setSubject(attrs)
-        cert.setIssuer(rootCertificate.subject.attributes)        
+        cert.setIssuer(rootCertificate.subject.attributes)
         cert.sign(rootPrivateKey, sha256Digest)
 
         res.json({
@@ -78,14 +78,13 @@ app.post("/verify-certificate", (req, res) => {
             getDigest(cert).digest().getBytes(),
             cert.signature
         )
-        
+
         if (!validSignature) {
             return res.json({ valid: false, reason: "Invalid certificate signature." })
         }
 
         const digestHex = getDigest(cert).digest().toHex()
-        console.log(digestHex)
-        if(revoked.some(hash => hash == digestHex)) {
+        if (revoked.some(hash => hash == digestHex)) {
             return res.json({ valid: false, reason: "Revoked certificate." })
         }
 
@@ -97,19 +96,19 @@ app.post("/verify-certificate", (req, res) => {
 })
 
 app.post("/revoke-certificate", (req, res) => {
-    try{
+    try {
         const cert = forge.pki.certificateFromPem(req.body.certificate)
         const pk = forge.pki.privateKeyFromPem(req.body.privateKey)
 
         const publicKeyModulus = cert.publicKey.n.toString(16);
         const privateKeyModulus = pk.n.toString(16);
 
-        if(publicKeyModulus != privateKeyModulus)
+        if (publicKeyModulus != privateKeyModulus)
             return res.json({ valid: false })
 
         revoked.push(getDigest(cert).digest().toHex())
 
-        fs.writeFile(REVOKED_PATH, revoked.join('\n'), () => {})
+        fs.writeFile(REVOKED_PATH, revoked.join('\n'), () => { })
 
         res.json({
             valid: true,
@@ -124,21 +123,19 @@ app.post("/revoke-certificate", (req, res) => {
 
 
 app.post("/renew-certificate", (req, res) => {
-    try{
+    try {
         const cert = forge.pki.certificateFromPem(req.body.certificate)
         const pk = forge.pki.privateKeyFromPem(req.body.privateKey)
 
         const publicKeyModulus = cert.publicKey.n.toString(16);
         const privateKeyModulus = pk.n.toString(16);
 
-        if(publicKeyModulus != privateKeyModulus)
+        if (publicKeyModulus != privateKeyModulus)
             return res.json({ valid: false })
-
-        console.log(JSON.stringify(cert))
 
         const keyPair = forge.pki.rsa.generateKeyPair(2048)
         const newCert = forge.pki.createCertificate()
-        
+
         newCert.publicKey = keyPair.publicKey
         newCert.serialNumber = Date.now().toString()
 
@@ -148,7 +145,7 @@ app.post("/renew-certificate", (req, res) => {
 
 
         newCert.setSubject(cert.subject.attributes)
-        newCert.setIssuer(rootCertificate.subject.attributes)        
+        newCert.setIssuer(rootCertificate.subject.attributes)
         newCert.sign(rootPrivateKey, sha256Digest)
 
         res.json({
